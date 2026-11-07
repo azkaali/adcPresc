@@ -1,9 +1,11 @@
-import { ArrowDown, ArrowUp, History, Pill, Trash2, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, ArrowUp, History, Pill, Sparkles, Trash2, Zap } from 'lucide-react';
 import type { MedicationLine, Medicine } from '../../shared/types.ts';
 import { composeDosage, DURATIONS, FREQUENCIES, QUANTITIES, TIMINGS, type Phrase } from '../lib/dosage';
 import { formAbbreviation } from '../lib/format';
+import { DictateMedicines } from './DictateMedicines';
 import { Field, TextInput } from './fields';
 import { MedicineSearch } from './MedicineSearch';
+import { useToast } from './Toast';
 
 /** A medication line while it is being edited, with the quick-dose picks that built its text. */
 export interface EditableLine extends MedicationLine {
@@ -13,6 +15,8 @@ export interface EditableLine extends MedicationLine {
   timing?: number;
   /** Dosage was copied from the last prescription of this medicine. */
   fromLastUse?: boolean;
+  /** Line was written by AI from dictation and has not been edited since. */
+  fromDictation?: boolean;
 }
 
 let lastKey = 0;
@@ -90,11 +94,12 @@ function MedicationRow({ line, index, count, onPatch, onRemove, onMove }: RowPro
       picks.freq === undefined ? undefined : FREQUENCIES[picks.freq],
       picks.timing === undefined ? undefined : TIMINGS[picks.timing],
     ]);
-    onPatch({ ...picks, dosage_en: dose.en, dosage_ur: dose.ur, fromLastUse: false });
+    onPatch({ ...picks, dosage_en: dose.en, dosage_ur: dose.ur, fromLastUse: false, fromDictation: false });
   };
 
   const durationIndex = DURATIONS.findIndex((d) => d.en === line.duration_en);
-  const edit = (key: keyof MedicationLine) => (value: string) => onPatch({ [key]: value, fromLastUse: false });
+  const edit = (key: keyof MedicationLine) => (value: string) =>
+    onPatch({ [key]: value, fromLastUse: false, fromDictation: false });
 
   return (
     <li className="med-line">
@@ -110,6 +115,16 @@ function MedicationRow({ line, index, count, onPatch, onRemove, onMove }: RowPro
           {line.fromLastUse && (
             <span className="badge badge-soft" title="Dosage copied from the last time you prescribed this medicine">
               <History size={12} /> last used dose
+            </span>
+          )}
+          {line.fromDictation && (
+            <span className="badge badge-ai" title="Written by AI from dictation. Check the medicine and dose before printing.">
+              <Sparkles size={12} /> dictated · please check
+            </span>
+          )}
+          {line.fromDictation && line.medicine_id === null && (
+            <span className="badge badge-warn" title="This name did not match any medicine in your list">
+              <AlertTriangle size={12} /> not in medicine list
             </span>
           )}
         </div>
@@ -182,10 +197,20 @@ interface Props {
 }
 
 export function MedicationEditor({ lines, onChange }: Props) {
+  const toast = useToast();
+
   const add = (m: Medicine) => {
     const duplicate = lines.some((l) => l.medicine_id === m.id);
     if (duplicate && !window.confirm(`${m.brand_name} ${m.strength} is already on the list. Add it again?`)) return;
     onChange([...lines, lineFromMedicine(m)]);
+  };
+
+  const addDictated = (dictated: MedicationLine[]) => {
+    onChange([...lines, ...dictated.map((l) => ({ ...l, key: newKey(), fromDictation: true }))]);
+    const unknown = dictated.filter((l) => l.medicine_id === null).map((l) => l.brand_name);
+    if (unknown.length) {
+      toast(`Not in your medicine list: ${unknown.join(', ')}. Check the spelling, or add it on the Medicines page.`, 'info');
+    }
   };
 
   const patch = (key: string, changes: Partial<EditableLine>) =>
@@ -201,6 +226,7 @@ export function MedicationEditor({ lines, onChange }: Props) {
 
   return (
     <div className="medications">
+      <DictateMedicines onLines={addDictated} />
       <MedicineSearch onSelect={add} />
       {lines.length === 0 ? (
         <div className="empty-state small">

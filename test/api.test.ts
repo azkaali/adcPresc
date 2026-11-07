@@ -138,6 +138,60 @@ test('invalid requests get clear errors', async () => {
   assert.equal((await call('GET', '/nothing-here')).status, 404);
 });
 
+test('dictation explains when the AI key is missing', async () => {
+  const key = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  try {
+    assert.equal((await call('POST', '/dictation/medications', { transcript: '  ' })).status, 400);
+    const res = await call('POST', '/dictation/medications', { transcript: 'آرکوکسیا 90 ایک گولی رات کو' });
+    assert.equal(res.status, 503);
+    assert.match(res.body.error, /GEMINI_API_KEY/);
+  } finally {
+    if (key !== undefined) process.env.GEMINI_API_KEY = key;
+  }
+});
+
+test('dictated lines only trust medicine ids that are on the list', async () => {
+  const { toLines } = await import('../server/dictation.ts');
+  const medicines = [{ id: 7, brand_name: 'Arcoxia', generic_name: 'Etoricoxib', strength: '90 mg', form: 'Tablet' }];
+  const entry = { potency: '', dosage_ur: 'ایک گولی رات کو', dosage_en: '1 tablet at night', duration_ur: '', duration_en: '' };
+  const lines = toLines(
+    {
+      medications: [
+        { ...entry, medicine_id: 7, name: 'Arcoxia' },
+        { ...entry, medicine_id: 999, name: 'Madeupine' },
+        { ...entry, medicine_id: 0, name: '' },
+      ],
+    },
+    medicines,
+  );
+  assert.deepEqual(lines, [
+    {
+      medicine_id: 7,
+      brand_name: 'Arcoxia',
+      generic_name: 'Etoricoxib',
+      form: 'Tablet',
+      potency: '90 mg',
+      dosage_en: '1 tablet at night',
+      dosage_ur: 'ایک گولی رات کو',
+      duration_en: '',
+      duration_ur: '',
+    },
+    {
+      medicine_id: null,
+      brand_name: 'Madeupine',
+      generic_name: '',
+      form: '',
+      potency: '',
+      dosage_en: '1 tablet at night',
+      dosage_ur: 'ایک گولی رات کو',
+      duration_en: '',
+      duration_ur: '',
+    },
+  ]);
+  assert.deepEqual(toLines({ nonsense: true }, medicines), []);
+});
+
 test('settings save only known keys', async () => {
   const res = await call('PUT', '/settings', { doctor_name: 'Dr. Test', unknown_key: 'x' });
   assert.equal(res.body.doctor_name, 'Dr. Test');

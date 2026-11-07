@@ -3,6 +3,7 @@ import type {
   Diagnosis,
   DiagnosisInput,
   DiagnosisSummary,
+  MedicationLine,
   Medicine,
   MedicineInput,
   Prescription,
@@ -51,6 +52,11 @@ export const api = {
     create: (input: PrescriptionInput) => request<Prescription>('POST', '/prescriptions', input),
     update: (id: number, input: PrescriptionInput) => request<Prescription>('PUT', `/prescriptions/${id}`, input),
     remove: (id: number) => request<null>('DELETE', `/prescriptions/${id}`),
+  },
+
+  dictation: {
+    medications: (transcript: string) =>
+      request<{ medications: MedicationLine[] }>('POST', '/dictation/medications', { transcript }),
   },
 
   settings: {

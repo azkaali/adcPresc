@@ -379,6 +379,14 @@ kbd {
   background: #fdf3d7;
   color: #8a4b0b;
 }
+.badge-ai {
+  background: #f1e9fb;
+  color: #6532a8;
+}
+.badge-warn {
+  background: var(--danger-soft);
+  color: #8f1d1d;
+}
 
 .tag {
   padding: 0 7px;
@@ -858,6 +866,23 @@ mark {
   flex-direction: column;
   gap: 12px;
 }
+.dictate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.dictate .field-hint {
+  flex: 1;
+  min-width: 220px;
+}
+.btn-listening,
+.btn-listening:hover {
+  border-color: #f0b4b4;
+  background: #fde4e4;
+  color: #c62828;
+  animation: pulse 1.2s infinite;
+}
 .med-lines {
   display: flex;
   flex-direction: column;
@@ -1154,6 +1179,10 @@ mark {
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+.spinner-sm {
+  width: 14px;
+  height: 14px;
 }
 @keyframes spin {
   to {

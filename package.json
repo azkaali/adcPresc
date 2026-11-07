@@ -9,11 +9,11 @@
   },
   "scripts": {
     "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "node --watch --disable-warning=ExperimentalWarning server/index.ts",
+    "dev:api": "node --watch --env-file-if-exists=.env --disable-warning=ExperimentalWarning server/index.ts",
     "dev:web": "vite",
     "build": "vite build",
-    "serve": "node --disable-warning=ExperimentalWarning server/index.ts",
-    "start": "vite build && node --disable-warning=ExperimentalWarning server/index.ts --open",
+    "serve": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server/index.ts",
+    "start": "vite build && node --env-file-if-exists=.env --disable-warning=ExperimentalWarning server/index.ts --open",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.server.json",
     "test": "node --disable-warning=ExperimentalWarning --test \"test/*.test.ts\""
   },
@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@fontsource/noto-nastaliq-urdu": "^5.3.0",
+    "@google/genai": "^3.0.0",
     "express": "^5.3.0",
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",

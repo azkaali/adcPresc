@@ -18,6 +18,7 @@ import type {
   TemplateAction,
 } from '../shared/types.ts';
 import { all, db, get, run, transaction } from './db.ts';
+import { dictateMedications, DictationError, type ListedMedicine } from './dictation.ts';
 
 export class HttpError extends Error {
   status: number;
@@ -147,6 +148,22 @@ api.delete('/medicines/:id', (req, res) => {
     throw new HttpError(404, 'Medicine not found');
   }
   res.status(204).end();
+});
+
+// ---------------------------------------------------------------------------
+// Dictation: "Arcoxia 90, ایک گولی رات کو" -> medication lines (medicine in English, dosage in Urdu + English)
+
+api.post('/dictation/medications', async (req, res) => {
+  const transcript = text(req.body?.transcript, 2000);
+  if (!transcript) throw new HttpError(400, 'Nothing was dictated');
+  // Ordered by id so the list only grows at the end and stays cacheable between requests.
+  const medicines = all<ListedMedicine>('SELECT id, brand_name, generic_name, strength, form FROM medicines ORDER BY id');
+  try {
+    res.json({ medications: await dictateMedications(transcript, medicines) });
+  } catch (err) {
+    if (err instanceof DictationError) throw new HttpError(err.status, err.message);
+    throw err;
+  }
 });
 
 // ---------------------------------------------------------------------------

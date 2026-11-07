@@ -21,14 +21,16 @@ const RecognitionImpl: (new () => Recognition) | undefined =
 
 export const voiceSupported = RecognitionImpl !== undefined;
 
-interface Props {
+interface SpeechOptions {
   /** BCP-47 language, e.g. "en-US" or "ur-PK". */
-  lang?: string;
+  lang: string;
+  /** Keep listening through pauses until stopped, instead of ending at the first pause. */
+  continuous?: boolean;
+  /** Called once with everything that was said, after listening ends. */
   onText: (text: string) => void;
-  label?: string;
 }
 
-export function VoiceButton({ lang = 'en-US', onText, label = 'Dictate' }: Props) {
+export function useSpeechRecognition({ lang, continuous = false, onText }: SpeechOptions) {
   const [listening, setListening] = useState(false);
   const recognition = useRef<Recognition | null>(null);
   const onTextRef = useRef(onText);
@@ -37,23 +39,29 @@ export function VoiceButton({ lang = 'en-US', onText, label = 'Dictate' }: Props
   useEffect(() => {
     onTextRef.current = onText;
   });
-  useEffect(() => () => recognition.current?.abort(), []);
-
-  if (!RecognitionImpl) return null;
+  useEffect(
+    () => () => {
+      if (!recognition.current) return;
+      recognition.current.onend = null;
+      recognition.current.abort();
+    },
+    [],
+  );
 
   const toggle = () => {
     if (recognition.current) {
       recognition.current.stop();
       return;
     }
+    if (!RecognitionImpl) return;
     const rec = new RecognitionImpl();
     rec.lang = lang;
     rec.interimResults = false;
-    rec.continuous = false;
+    rec.continuous = continuous;
     rec.maxAlternatives = 1;
+    let transcript = '';
     rec.onresult = (event) => {
-      const transcript = Array.from(event.results, (r) => r[0].transcript).join(' ').trim();
-      if (transcript) onTextRef.current(transcript);
+      transcript = Array.from(event.results, (r) => r[0].transcript).join(' ').trim();
     };
     rec.onerror = (event) => {
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
@@ -69,11 +77,27 @@ export function VoiceButton({ lang = 'en-US', onText, label = 'Dictate' }: Props
     rec.onend = () => {
       recognition.current = null;
       setListening(false);
+      if (transcript) onTextRef.current(transcript);
     };
     recognition.current = rec;
     rec.start();
     setListening(true);
   };
+
+  return { listening, toggle };
+}
+
+interface Props {
+  /** BCP-47 language, e.g. "en-US" or "ur-PK". */
+  lang?: string;
+  onText: (text: string) => void;
+  label?: string;
+}
+
+export function VoiceButton({ lang = 'en-US', onText, label = 'Dictate' }: Props) {
+  const { listening, toggle } = useSpeechRecognition({ lang, onText });
+
+  if (!voiceSupported) return null;
 
   const language = lang.startsWith('ur') ? 'Urdu' : 'English';
   const title = listening ? 'Listening… click to stop' : `${label} (${language})`;
